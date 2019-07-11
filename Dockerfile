@@ -5,7 +5,7 @@ LABEL version="0.1"
 LABEL maintainer="sp-solutions@paloaltonetworks.com"
 
 WORKDIR /app
-COPY tools/requirements.txt /app/requirements.txt
+COPY requirements.txt /app/requirements.txt
 
 RUN apk add --update --no-cache curl && \
 	pip install --upgrade pip && \
