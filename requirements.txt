@@ -2,10 +2,10 @@ certifi==2019.6.16
 chardet==3.0.4
 idna==2.8
 Jinja2==2.10.1
-MarkupSafe==1.0
-oyaml==0.7
+MarkupSafe==1.1.1
+oyaml==0.9
 pan-python==0.14.0
 passlib==1.7.1
-PyYAML==3.13
+PyYAML==5.1.1
 requests==2.22.0
 urllib3==1.25.3

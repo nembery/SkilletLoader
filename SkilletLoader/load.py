@@ -34,7 +34,7 @@ if __name__ == '__main__':
 
     try:
         skillet = Skillet(skillet_path)
-        context = skillet.update_context(os.environ)
+        context = skillet.update_context(os.environ.copy())
 
         if skillet.type == 'panos':
             device = Panos(api_username=username, api_password=password, hostname=ip_addr, api_port=port)
