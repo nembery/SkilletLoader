@@ -5,7 +5,7 @@ import sys
 
 from utils.exceptions import LoaderException
 from utils.exceptions import LoginException
-from utils.panos import Panos
+from utils.panoply import Panoply
 from utils.skillet import Skillet
 
 if __name__ == '__main__':
@@ -37,7 +37,7 @@ if __name__ == '__main__':
         context = skillet.update_context(os.environ.copy())
 
         if skillet.type == 'panos':
-            device = Panos(api_username=username, api_password=password, hostname=ip_addr, api_port=port)
+            device = Panoply(api_username=username, api_password=password, hostname=ip_addr, api_port=port)
             for snippet in skillet.get_snippets():
                 xpath, xmlstr = snippet.template(context)
                 device.set_at_path(snippet.name, xpath, xmlstr)
