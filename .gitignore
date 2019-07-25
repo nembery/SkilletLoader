@@ -1,6 +1,7 @@
 # local ignore
 .idea
 venv
+.vscode/
 
 # ---> Python
 # Byte-compiled / optimized / DLL files

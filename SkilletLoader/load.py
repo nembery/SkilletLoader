@@ -2,38 +2,27 @@
 import argparse
 import os
 import sys
+import click 
 
 from utils.exceptions import LoaderException
 from utils.exceptions import LoginException
 from utils.panoply import Panoply
 from utils.skillet import Skillet
 
-if __name__ == '__main__':
 
-    parser = argparse.ArgumentParser()
-    parser.add_argument("-i", "--ip_address", help="IP address of the device", type=str)
-    parser.add_argument("-r", "--port", help="Port", type=str)
-    parser.add_argument("-u", "--username", help="Firewall Username", type=str)
-    parser.add_argument("-p", "--password", help="Firewall Password", type=str)
-    parser.add_argument("-s", "--skillet", help="Skillet Path", type=str)
-    args = parser.parse_args()
-
-    if len(sys.argv) < 2:
-        parser.print_help()
-        parser.exit()
-        exit(1)
-
-    ip_addr = args.ip_address
-    username = args.username
-    password = args.password
-    skillet_path = args.skillet
-    port = args.port
-
-    if not port:
-        port = '443'
+@click.command()
+@click.option("-i", "--ip_addr", help="IP address of the device (localhost)", type=str, default="localhost")
+@click.option("-r", "--port", help="Port to communicate to NGFW (443)", type=int, default=443)
+@click.option("-u", "--username", help="Firewall Username (admin)", type=str, default="admin")
+@click.option("-p", "--password", help="Firewall Password (admin)", type=str, default="admin")
+@click.argument("skillet", type=click.Path(exists=True))
+def cli(skillet,ip_addr,port,username,password):
+    """
+    Load the SKILLET from the command line.  Defaults values in parenthesis.  
+    """
 
     try:
-        skillet = Skillet(skillet_path)
+        skillet = Skillet(skillet)
         context = skillet.update_context(os.environ.copy())
 
         if skillet.type == 'panos':
@@ -54,3 +43,11 @@ if __name__ == '__main__':
         exit(1)
 
     exit(1)
+
+
+if __name__ == '__main__':
+    cli()
+
+
+
+   
