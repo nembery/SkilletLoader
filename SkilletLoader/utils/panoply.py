@@ -2,13 +2,15 @@ import re
 
 import xmltodict
 from pan import xapi
+from pan.xapi import PanXapiError
 
 from .exceptions import LoaderException
+from .exceptions import LoginException
 
 
 class Panoply:
     """
-    PANOS Device. Could be a firewall or PANORAMA.
+    Panoply is a wrapper around pan-python PanXAPI class to provide additional, commonly used functions
     """
 
     def __init__(self, hostname, api_username, api_password, api_port):
@@ -24,14 +26,17 @@ class Panoply:
         self.port = api_port
         self.key = ''
         self.debug = False
-        self.xapi = xapi.PanXapi(api_username=self.user, api_password=self.pw, hostname=self.hostname, port=self.port)
-        self.key = self.xapi.keygen()
-        self.facts = self.get_facts()
+        try:
+            self.xapi = xapi.PanXapi(api_username=self.user, api_password=self.pw, hostname=self.hostname, port=self.port)
+            self.key = self.xapi.keygen()
+            self.facts = self.get_facts()
+        except PanXapiError as pxe:
+            raise LoginException('Could not connect to the PANOS device')
 
     def commit(self):
         try:
             self.xapi.commit('<commit></commit>', sync=True)
-        except xapi.PanXapiError as pxe:
+        except PanXapiError as pxe:
             print(pxe)
             raise LoaderException('Could not commit configuration')
 
@@ -41,7 +46,7 @@ class Panoply:
             self.xapi.set(xpath=xpath, element=self.sanitize_element(elementvalue))
             if self.xapi.status_code == '7':
                 raise LoaderException(f'xpath {xpath} was NOT found for skillet: {name}')
-        except xapi.PanXapiError as pxe:
+        except PanXapiError as pxe:
             raise LoaderException(f'Could not push skillet {name} / snippet {xpath}! {pxe}')
 
     @staticmethod
@@ -101,4 +106,3 @@ class Panoply:
             return False
 
         return True
-
