@@ -1,16 +1,13 @@
 from collections import OrderedDict
 from pathlib import Path
+from typing import List
 from xml.etree import ElementTree
 
 import oyaml
-from yaml.constructor import ConstructorError
 from yaml.error import YAMLError
-from yaml.parser import ParserError
-from yaml.reader import ReaderError
-from yaml.scanner import ScannerError
 
-from .exceptions import LoaderException
-from .snippet import Snippet
+from utils.snippet import Snippet
+from .exceptions import SkilletLoaderException
 
 
 class Skillet:
@@ -28,7 +25,7 @@ class Skillet:
         if '.meta-cnc' in path:
             meta_cnc_file = Path(path)
             if not meta_cnc_file.exists():
-                raise LoaderException('Could not find .meta-cnc file as this location')
+                raise SkilletLoaderException('Could not find .meta-cnc file as this location')
         else:
             # we were only passed a directory like '.' or something, try to find a .meta-cnc.yaml or .meta-cnc.yml
             directory = Path(path)
@@ -40,40 +37,30 @@ class Skillet:
                     break
 
             if not found_meta:
-                raise LoaderException('Could not find .meta-cnc file at this location')
+                raise SkilletLoaderException('Could not find .meta-cnc file at this location')
 
             snippet_path = str(meta_cnc_file.parent.absolute())
             try:
                 with meta_cnc_file.open(mode='r') as sc:
                     raw_service_config = oyaml.safe_load(sc.read())
-                    skillet = self._normalize_snippet_structure(raw_service_config)
+                    skillet = self._normalize_skillet_structure(raw_service_config)
                     skillet['snippet_path'] = snippet_path
                     return skillet
 
             except IOError as ioe:
                 print('Could not open metadata file in dir %s' % meta_cnc_file.parent)
-                print(ioe)
-            except ParserError as pe:
-                print('Could not parse metadata file in dir %s' % meta_cnc_file.parent)
-                print(pe)
-            except ScannerError as se:
-                print('Could not parse meta-cnc file in dir %s' % meta_cnc_file.parent)
-                print(se)
-            except ConstructorError as ce:
-                print('Could not parse metadata file in dir %s' % meta_cnc_file.parent)
-                print(ce)
-            except ReaderError as re:
-                print('Could not parse metadata file in dir %s' % meta_cnc_file.parent)
-                print(re)
+                raise SkilletLoaderException('IOError: Could not parse metadata file in dir %s' % meta_cnc_file.parent)
             except YAMLError as ye:
-                print('YAMLError: Could not parse metadata file in dir %s' % meta_cnc_file.parent)
                 print(ye)
+                raise SkilletLoaderException(
+                    'YAMLError: Could not parse metadata file in dir %s' % meta_cnc_file.parent)
             except Exception as ex:
-                print('Caught unknown exception!')
                 print(ex)
+                raise SkilletLoaderException(
+                    'Exception: Could not parse metadata file in dir %s' % meta_cnc_file.parent)
 
     @staticmethod
-    def _normalize_snippet_structure(skillet: dict) -> dict:
+    def _normalize_skillet_structure(skillet: dict) -> dict:
         """
         Attempt to resolve common configuration file format errors
         :param skillet: a loaded skillet/snippet
@@ -154,7 +141,7 @@ class Skillet:
 
         return skillet
 
-    def get_snippets(self) -> list:
+    def get_snippets(self) -> List[Snippet]:
         snippet_path_str = self.skillet_dict['snippet_path']
         snippet_path = Path(snippet_path_str)
         snippet_list = list()
@@ -172,14 +159,15 @@ class Skillet:
             for snippet in snippets:
                 snippet.template(context)
 
-    def split_snippet(self, snippet):
+    @staticmethod
+    def split_snippet(snippet: Snippet) -> list:
         """
         Cuts an oversized snippet into smaller snippets on the basis that most snippets are
         a list of <entry> objects
-        :param snippet_string:
+        :param snippet: Snippet object
         :return:
         """
-        snippet_string = snippet.rendered_xmlstr
+        snippet_string = snippet.rendered_xml_str
         length = len(snippet_string)
 
         if length > 12000:

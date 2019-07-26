@@ -1,5 +1,5 @@
 <?xml version="1.0"?>
-<config version="9.0.0" urldb="paloaltonetworks">
+<config version="8.0.0" urldb="paloaltonetworks">
     <mgt-config>
         <users>
             <entry name="{{ ADMINISTRATOR_USERNAME }}">
@@ -238,36 +238,37 @@
             </network>
             <deviceconfig>
                 <system>
-                    <hostname>{{ FW_NAME }}</hostname>
-                    {%- if MGMT_TYPE == "static" %}
-                    <type>
-                        <static/>
-                    </type>
-                    <ip-address>{{ MGMT_IP }}</ip-address>
-                    <netmask>{{ MGMT_MASK }}</netmask>
-                    <default-gateway>{{ MGMT_DG }}</default-gateway>
-                    {% elif MGMT_TYPE == "dhcp-client" %}
-                    <type>
-                        <dhcp-client>
-                            <send-hostname>yes</send-hostname>
-                            <send-client-id>no</send-client-id>
-                            <accept-dhcp-hostname>no</accept-dhcp-hostname>
-                            <accept-dhcp-domain>no</accept-dhcp-domain>
-                        </dhcp-client>
-                    </type>
-                    {% else %}
-                    <type>
-                        <dhcp-client>
-                            <send-hostname>yes</send-hostname>
-                            <send-client-id>no</send-client-id>
-                            <accept-dhcp-hostname>no</accept-dhcp-hostname>
-                            <accept-dhcp-domain>no</accept-dhcp-domain>
-                        </dhcp-client>
-                    </type>
-                    {% endif %}
+                    <ip-address>10.0.1.210</ip-address>
+                    <netmask>255.255.255.0</netmask>
+                    <update-server>updates.paloaltonetworks.com</update-server>
+                    <update-schedule>
+                        <threats>
+                            <recurring>
+                                <weekly>
+                                    <day-of-week>wednesday</day-of-week>
+                                    <at>01:02</at>
+                                    <action>download-only</action>
+                                </weekly>
+                            </recurring>
+                        </threats>
+                    </update-schedule>
+                    <timezone>US/Pacific</timezone>
+                    <service>
+                        <disable-telnet>yes</disable-telnet>
+                        <disable-http>yes</disable-http>
+                    </service>
+                    <hostname>PA-220</hostname>
+                    <default-gateway>10.0.1.1</default-gateway>
                 </system>
+                <setting>
+                    <config>
+                        <rematch>yes</rematch>
+                    </config>
+                    <management>
+                        <hostname-type-in-syslog>FQDN</hostname-type-in-syslog>
+                    </management>
+                </setting>
             </deviceconfig>
-
             <vsys>
                 <entry name="vsys1">
                     <application/>

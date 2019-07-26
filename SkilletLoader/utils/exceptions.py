@@ -1,4 +1,4 @@
-class LoaderException(BaseException):
+class SkilletLoaderException(BaseException):
     pass
 
 

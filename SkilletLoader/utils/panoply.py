@@ -4,7 +4,7 @@ import xmltodict
 from pan import xapi
 from pan.xapi import PanXapiError
 
-from .exceptions import LoaderException
+from .exceptions import SkilletLoaderException
 from .exceptions import LoginException
 
 
@@ -35,19 +35,21 @@ class Panoply:
 
     def commit(self):
         try:
-            self.xapi.commit('<commit></commit>', sync=True)
+            self.xapi.commit('<commit></commit>', sync=True, timeout=600)
         except PanXapiError as pxe:
             print(pxe)
-            raise LoaderException('Could not commit configuration')
+            raise SkilletLoaderException('Could not commit configuration')
 
     def set_at_path(self, name, xpath, elementvalue):
 
         try:
+            # print(f'Using xpath {xpath}')
+            # print(f'{elementvalue}')
             self.xapi.set(xpath=xpath, element=self.sanitize_element(elementvalue))
             if self.xapi.status_code == '7':
-                raise LoaderException(f'xpath {xpath} was NOT found for skillet: {name}')
+                raise SkilletLoaderException(f'xpath {xpath} was NOT found for skillet: {name}')
         except PanXapiError as pxe:
-            raise LoaderException(f'Could not push skillet {name} / snippet {xpath}! {pxe}')
+            raise SkilletLoaderException(f'Could not push skillet {name} / snippet {xpath}! {pxe}')
 
     @staticmethod
     def sanitize_element(element: str) -> str:
@@ -72,7 +74,7 @@ class Panoply:
 
         if self.xapi.status != 'success':
             print('We have a problem!')
-            raise LoaderException('Could not get facts from device!')
+            raise SkilletLoaderException('Could not get facts from device!')
 
         results_xml_str = self.xapi.xml_result()
         results = xmltodict.parse(results_xml_str)
@@ -88,8 +90,8 @@ class Panoply:
         :return: bool
         """
 
-        if 'sw-versipon' not in self.facts:
-            raise LoaderException('Could not determine sw-version to load baseline configuration!')
+        if 'sw-version' not in self.facts:
+            raise SkilletLoaderException('Could not determine sw-version to load baseline configuration!')
 
         version = self.facts['sw-version']
         if '8.0' in version:
@@ -106,3 +108,7 @@ class Panoply:
             return False
 
         return True
+
+    def get_running_config(self):
+        self.xapi.export(category='configuration')
+
