@@ -168,7 +168,6 @@ class Panoply:
             return False
 
         try:
-            print('here we go')
             func(**kwargs)
         except PanXapiError as e:
             print(e)
