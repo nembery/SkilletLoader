@@ -11,6 +11,7 @@ from pan import xapi
 from pan.xapi import PanXapiError
 
 from .exceptions import SkilletLoaderException
+from .exceptions import LoginException
 from .skillet.base import Skillet
 
 
@@ -22,28 +23,59 @@ class Panoply:
     def __init__(self, hostname, api_username, api_password, api_port=443, serial_number=None):
         """
         Initialize a new panos object
-        :param hostname: NAME:PORT combination (ex. l72.16.0.1:443)
+        :param hostname: hostname or ip address of target device`
         :param api_username: username
         :param api_password: password
+        :param api_port: port to use for target device
+        :param serial_number: Serial number of target device if proxy through panorama
         """
         self.hostname = hostname
         self.user = api_username
         self.pw = api_password
         self.port = api_port
+        self.serial_number = serial_number
         self.key = ''
         self.debug = False
         self.serial = serial_number
+        self.connected = False
+        self.facts = {}
 
         try:
             self.xapi = xapi.PanXapi(api_username=self.user, api_password=self.pw, hostname=self.hostname,
-                                     port=self.port, serial=serial_number)
+                                     port=self.port, serial=self.serial_number)
+        except PanXapiError:
+            print('Invalid Connection information')
+            raise LoginException('Invalid connection parameters')
+        else:
+            self.connect(allow_offline=True)
+
+    def connect(self, allow_offline=False) -> None:
+        """
+        Attempt to connect to this device instance
+        :param allow_offline: Do not raise an exception if this device is offline
+        :return: None
+        """
+        try:
             self.key = self.xapi.keygen()
             self.facts = self.get_facts()
         except PanXapiError as pxe:
-            # raise LoginException('Could not connect to the PANOS device')
-            print('Device is not currently available, check')
+            err_msg = str(pxe)
+            if '403' in err_msg:
+                raise LoginException('Invalid credentials logging into device')
+            else:
+                if allow_offline:
+                    print('FYI - Device is not currently available')
+                    self.connected = False
+                else:
+                    raise SkilletLoaderException('Could not connect to device!')
+        else:
+            self.connected = True
 
-    def commit(self):
+    def commit(self) -> None:
+        """
+        Perform a commit operation on this device instance
+        :return: None
+        """
         try:
             self.xapi.commit(cmd='<commit></commit>', sync=True, timeout=600)
             results = self.xapi.xml_result()
@@ -58,12 +90,18 @@ class Panoply:
             print(pxe)
             raise SkilletLoaderException('Could not commit configuration')
 
-    def set_at_path(self, name, xpath, elementvalue):
+    def set_at_path(self, name: str, xpath: str, xml_str: str) -> None:
+        """
+        Insert XML into the configuration tree at the specified xpath
+        :param name: name of the snippet - used in logging and debugging only
+        :param xpath: full xpath where the xml element will be inserted
+        :param xml_str: string representation of the XML element to insert
+        :return: None
+        """
 
         try:
             print(f'Loading xpath {xpath}')
-            # print(f'{elementvalue}')
-            self.xapi.set(xpath=xpath, element=self.sanitize_element(elementvalue))
+            self.xapi.set(xpath=xpath, element=self.sanitize_element(xml_str))
             if self.xapi.status_code == '7':
                 raise SkilletLoaderException(f'xpath {xpath} was NOT found for skillet: {name}')
         except PanXapiError as pxe:
@@ -121,8 +159,10 @@ class Panoply:
         use device facts to determine which baseline template to load
         see template/panos/baseline_80.xml for example
         :param self:
-        :return: bool
+        :return: bool true on success
         """
+        if not self.connected:
+            self.connect()
 
         if 'sw-version' not in self.facts:
             raise SkilletLoaderException('Could not determine sw-version to load baseline configuration!')
@@ -165,7 +205,14 @@ class Panoply:
 
         return True
 
-    def import_file(self, filename, file_contents, category) -> bool:
+    def import_file(self, filename: str, file_contents: (str, bytes), category: str) -> bool:
+        """
+        Import the given file into this device
+        :param filename:
+        :param file_contents:
+        :param category: 'configuration'
+        :return: bool True on success
+        """
         params = {
             'type': 'import',
             'category': category,
@@ -197,6 +244,12 @@ class Panoply:
         return True
 
     def load_config(self, filename: str) -> bool:
+        """
+        Loads the named configuration file into this device
+        :param filename: name of the configuration file on the device to load. Note this filename must already exist
+        on the target device
+        :return: bool True on success
+        """
 
         cmd = f'<load><config><from>{filename}</from></config></load>'
         self.xapi.op(cmd=cmd)
@@ -232,11 +285,11 @@ class Panoply:
             print(f'Waiting for {self.hostname} to become ready...')
             time.sleep(interval)
 
-    def update_dynamic_content(self, content_type):
+    def update_dynamic_content(self, content_type: str) -> bool:
         """
         Check for newer dynamic content and install if found
         :param content_type: type of content to check. can be either: 'content', 'anti-virus', 'wildfire'
-        :return:
+        :return: bool True on success
         """
         try:
             version_to_install = self.check_content_updates(content_type)
