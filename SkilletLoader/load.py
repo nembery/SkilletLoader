@@ -1,4 +1,20 @@
 #!/usr/bin/env python3
+# Copyright (c) 2018, Palo Alto Networks
+#
+# Permission to use, copy, modify, and/or distribute this software for any
+# purpose with or without fee is hereby granted, provided that the above
+# copyright notice and this permission notice appear in all copies.
+#
+# THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+# WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+# ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+# OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+
+# Authors: Edward Arcuri, Nathan Embery
+
 import os
 
 import click
@@ -32,10 +48,13 @@ def cli(skillet_path, target_ip, target_port, target_username, target_password):
                              )
 
             for snippet in skillet.get_snippets():
-                xml_str = snippet.template(context)
-                xpath = snippet.render(snippet.xpath, context)
-                device.set_at_path(snippet.name, xpath, xml_str)
+                metadata = snippet.render_metadata(context)
+                print(f'Performing cmd: {snippet.cmd}')
+                if not device.execute_cmd(snippet.cmd, metadata):
+                    print(f'Error executing snippet: {snippet.name}')
+                    exit(1)
 
+            print('Performing Commit')
             device.commit()
             print(f'Successfully pushed Skillet {skillet.name} to host: {target_ip}')
             exit(0)

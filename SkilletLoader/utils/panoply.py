@@ -1,3 +1,20 @@
+# Copyright (c) 2018, Palo Alto Networks
+#
+# Permission to use, copy, modify, and/or distribute this software for any
+# purpose with or without fee is hereby granted, provided that the above
+# copyright notice and this permission notice appear in all copies.
+#
+# THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+# WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+# ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+# OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+
+# Authors: Nathan Embery
+
+
 import re
 import time
 from pathlib import Path
@@ -107,6 +124,59 @@ class Panoply:
         except PanXapiError as pxe:
             raise SkilletLoaderException(f'Could not push skillet {name} / snippet {xpath}! {pxe}')
 
+    def execute_cmd(self, cmd: str, params: dict) -> bool:
+        """
+        Execute the given cmd using the xapi.
+        :param cmd: Valid options are 'set', 'edit', 'override', 'move', 'rename', 'clone'
+        :param params: valid parameters for the given cmd type
+        :return: bool True on success, raises SkilletLoaderException
+        """
+        if cmd not in ('set', 'edit', 'override', 'move', 'rename', 'clone'):
+            raise SkilletLoaderException('Invalid cmd type given to execute_cmd')
+
+        # this code happily borrowed from ansible-pan module
+        # https://raw.githubusercontent.com/PaloAltoNetworks/ansible-pan/develop/library/panos_type_cmd.py
+        cmd = params['cmd']
+        func = getattr(self.xapi, cmd)
+
+        kwargs = {
+            'xpath': ''.join(params['xpath'].strip().split('\n')),
+            'extra_qs': params.get('extra_qs', dict())
+        }
+
+        try:
+            if cmd in ('set', 'edit', 'override'):
+                kwargs['element'] = params['element'].strip()
+
+            if cmd in ('move',):
+                kwargs['where'] = params['where']
+                # dst is optional
+                kwargs['dst'] = params.get('dst', None)
+
+            if cmd in ('rename', 'clone'):
+                if 'new_name' in params:
+                    kwargs['newname'] = params['new_name']
+                else:
+                    kwargs['newname'] = params['newname']
+
+            if cmd in ('clone',):
+                kwargs['xpath_from'] = params['xpath_from']
+
+        except KeyError as ke:
+            print(f'Invalid parameters passed to execute_cmd')
+            print(ke)
+            return False
+
+        try:
+            print('here we go')
+            func(**kwargs)
+        except PanXapiError as e:
+            print(e)
+            print(f'Could not execute {cmd}')
+            return False
+        else:
+            return True
+        
     @staticmethod
     def sanitize_element(element: str) -> str:
         """
@@ -142,7 +212,8 @@ class Panoply:
         self.xapi.show(xpath="./devices/entry[@name='localhost.localdomain']/deviceconfig/system")
         results_xml_str = self.xapi.xml_result()
         results = xmltodict.parse(results_xml_str)
-        facts['timezone'] = results['system']['timezone']
+        if 'system' in results:
+            facts['timezone'] = results['system'].get('timezone', 'US/Pacific')
         try:
             facts['dns-primary'] = results['system']['dns-setting']['servers']['primary']
             facts['dns-secondary'] = results['system']['dns-setting']['servers']['secondary']

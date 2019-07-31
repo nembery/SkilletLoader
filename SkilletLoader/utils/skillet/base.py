@@ -27,10 +27,12 @@ class Skillet:
                 raise SkilletLoaderException('Could not find .meta-cnc file as this location')
         else:
             # we were only passed a directory like '.' or something, try to find a .meta-cnc.yaml or .meta-cnc.yml
-            directory = Path(path)
+            directory = Path(path).absolute()
+            print(f'using directory {directory}')
             found_meta = False
             for filename in ['.meta-cnc.yaml', '.meta-cnc.yml', 'meta-cnc.yaml', 'meta-cnc.yml']:
                 meta_cnc_file = directory.joinpath(filename)
+                print(f'checking now {meta_cnc_file}')
                 if meta_cnc_file.exists():
                     found_meta = True
                     break

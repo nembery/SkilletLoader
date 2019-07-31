@@ -7,6 +7,7 @@ LABEL maintainer="sp-solutions@paloaltonetworks.com"
 WORKDIR /app
 
 ENV PATH="/app:${PATH}"
+ENV PYTHONUNBUFFERED=1
 
 COPY requirements.txt /app/requirements.txt
 
@@ -17,9 +18,9 @@ RUN apk add --update --no-cache curl && \
 
 COPY SkilletLoader/ /app
 
-RUN curl -i -s -X POST https://scanapi.redlock.io/v1/vuln/os \
- -F "fileName=/etc/alpine-release" -F "file=@/etc/alpine-release" \
- -F "fileName=/lib/apk/db/installed" -F "file=@/lib/apk/db/installed" \
- -F "rl_args=report=detail" | grep -i "x-redlock-scancode: pass"
+#RUN curl -i -s -X POST https://scanapi.redlock.io/v1/vuln/os \
+# -F "fileName=/etc/alpine-release" -F "file=@/etc/alpine-release" \
+# -F "fileName=/lib/apk/db/installed" -F "file=@/lib/apk/db/installed" \
+# -F "rl_args=report=detail" | grep -i "x-redlock-scancode: pass"
 
 RUN chmod +x /app/load.py
