@@ -22,7 +22,7 @@ import click
 from utils.exceptions import LoginException
 from utils.exceptions import SkilletLoaderException
 from utils.panoply import Panoply
-from utils.skillet.panos import PanosSkillet
+from utils.skillet.base import Skillet
 
 
 @click.command()
@@ -37,7 +37,7 @@ def cli(skillet_path, target_ip, target_port, target_username, target_password):
     """
 
     try:
-        skillet = PanosSkillet(skillet_path)
+        skillet = Skillet(skillet_path)
         context = skillet.update_context(os.environ.copy())
 
         if skillet.type == 'template':
