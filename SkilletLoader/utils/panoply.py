@@ -244,9 +244,7 @@ class Panoply:
 
         file_contents = self.generate_baseline()
         self.import_file('skillet_baseline', file_contents, 'configuration')
-        self.load_config('skillet_baseline')
-
-        return True
+        return self.load_config('skillet_baseline')
 
     def generate_baseline(self) -> str:
         """
