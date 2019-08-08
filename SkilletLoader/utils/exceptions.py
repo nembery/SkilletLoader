@@ -4,3 +4,7 @@ class SkilletLoaderException(BaseException):
 
 class LoginException(BaseException):
     pass
+
+
+class PanoplyException(BaseException):
+    pass

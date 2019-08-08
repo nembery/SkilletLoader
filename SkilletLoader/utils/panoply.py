@@ -15,21 +15,31 @@
 # Authors: Nathan Embery
 
 
+import logging
 import re
+import sys
 import time
 from pathlib import Path
 from xml.etree import ElementTree
-from xml.etree import ElementTree as elementTree
 
 import requests
 import requests_toolbelt
 import xmltodict
 from pan import xapi
 from pan.xapi import PanXapiError
+from xmldiff import main as xmldiff_main
 
-from .exceptions import SkilletLoaderException
 from .exceptions import LoginException
+from .exceptions import SkilletLoaderException
+from .exceptions import PanoplyException
 from .skillet.base import Skillet
+
+import logging
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+handler = logging.StreamHandler(sys.stdout)
+handler.setLevel(logging.DEBUG)
+logger.addHandler(handler)
 
 
 class Panoply:
@@ -96,7 +106,7 @@ class Panoply:
         try:
             self.xapi.commit(cmd='<commit></commit>', sync=True, timeout=600)
             results = self.xapi.xml_result()
-            doc = elementTree.XML(results)
+            doc = ElementTree.XML(results)
             embedded_result = doc.find('result')
             if embedded_result is not None:
                 commit_result = embedded_result.text
@@ -175,7 +185,7 @@ class Panoply:
             return False
         else:
             return True
-        
+
     @staticmethod
     def sanitize_element(element: str) -> str:
         """
@@ -231,6 +241,21 @@ class Panoply:
         :param self:
         :return: bool true on success
         """
+
+        file_contents = self.generate_baseline()
+        self.import_file('skillet_baseline', file_contents, 'configuration')
+        self.load_config('skillet_baseline')
+
+        return True
+
+    def generate_baseline(self) -> str:
+        """
+        Load baseline config that contains ONLY connecting username / password
+        use device facts to determine which baseline template to load
+        see template/panos/baseline_80.xml for example
+        :param self:
+        :return: string contents of baseline config
+        """
         if not self.connected:
             self.connect()
 
@@ -260,8 +285,7 @@ class Panoply:
             # load the 9.0 baseline with
             skillet_dir = 'baseline_90'
         else:
-            print('Could not determine sw-version for baseline load')
-            return False
+            raise SkilletLoaderException('Could not determine sw-version for baseline load')
 
         template_path = Path(__file__).parent.joinpath('..', 'skillets', 'panos', skillet_dir)
         print(f'{template_path.resolve()}')
@@ -269,11 +293,7 @@ class Panoply:
         snippets = baseline_skillet.get_snippets()
         snippet = snippets[0]
         print(f'Loading {snippet.name}')
-        file_contents = snippet.template(context)
-        self.import_file(snippet.name, file_contents, 'configuration')
-        self.load_config(snippet.name)
-
-        return True
+        return snippet.template(context)
 
     def import_file(self, filename: str, file_contents: (str, bytes), category: str) -> bool:
         """
@@ -478,3 +498,130 @@ class Panoply:
                 print('Waiting a bit longer')
 
             time.sleep(interval)
+
+    def generate_skillet(self, from_candidate=False) -> list:
+        """
+        Generates a skillet from the changes detected on this device.
+        This will attempt to create the xml and xpaths for everything that is found to have changed
+        :param from_candidate: If your changes on in the candidate config, this will detect changes between the running
+        config and the candidate config. If False, this will detect changes between the running config and a generic
+        baseline configuration
+        :return: list of xpaths
+        """
+        if from_candidate:
+            self.xapi.op(cmd='show config candidate', cmd_xml=True)
+            latest_config = self.xapi.xml_result()
+            self.xapi.op(cmd='show config running', cmd_xml=True)
+            previous_config = self.xapi.xml_result()
+        else:
+            previous_config = self.generate_baseline()
+            self.xapi.op(cmd='show config running', cmd_xml=True)
+            latest_config = self.xapi.xml_result()
+
+        # use the excellent xmldiff library to get a list of changed elements
+        diffs = xmldiff_main.diff_texts(previous_config, latest_config, {'F': 0.1})
+        # returned diffs have the following basic structure
+        # InsertNode(target='/config/shared[1]', tag='log-settings', position=2)
+        # InsertNode(target='/config/shared/log-settings[1]', tag='http', position=0)
+        # keep a list of found xpaths
+        fx = list()
+
+        # keep a dict of targets to xpaths
+        xpaths = dict()
+        for d in diffs:
+            logger.debug(d)
+            # step 1 - find all inserted nodes (future enhancement can consider other types of deteced changes as well
+            if 'InsertNode' in str(d):
+                if d.target not in xpaths:
+                    xpaths[d.target] = d.target
+
+                # we have an inserted node, step2 determine if it's a top level element or a child of another element
+                # xmldiff will return even inserted nodes in elements that have already been inserted
+                # for purposes of building a skillet, we only need the top most unique element
+                # d_target = re.sub(r'\[\d+\]$', '', d.target)
+                # d_full = f'{d_target}/{d.tag}'
+                # has this element been found to be a child of another element?
+                found = False
+                # iter all diffs again to verify if this element is actually a child element or a top level element
+                for e in diffs:
+                    # again only consider inserted nodes for now
+                    if 'InsertNode' in str(e):
+                        e_target = re.sub(r'\[\d+\]$', '', e.target)
+                        e_full = f'{e_target}/{e.tag}'
+                        # begin checking for child / parent or equality relationship
+                        if e.target == d.target and d.tag == e.tag and d.position == e.position:
+                            # this is the same diff
+                            pass
+                        elif e.target == d.target and d.tag == e.tag:
+                            # same target and same tag indicate another entry under the same top-level tag
+                            # do not keep this as a top-level element
+                            found = True
+                            logger.debug('same target, same tag')
+                            logger.debug(e)
+                            logger.debug('---')
+                            break
+                        elif e.target != d.target and e_full in d.target:
+                            # the targets are not the same and this diffs target is found to be 'in' the outer diff
+                            # target, therefore this cannot be a top level element
+                            found = True
+                            logger.debug('e_full in d.target')
+                            logger.debug(e_full)
+                            logger.debug('---')
+                            break
+
+                if not found:
+                    # we have not found this to be a child or peer of another element
+                    # therefore this must be a top-level element, let's keep it for future work
+                    fx.append(d)
+            elif 'InsertAttr' in str(d):
+                if d.node not in xpaths:
+                    node_target = re.sub(r'\[\d+\]$', '', d.node)
+                    xpaths[d.node] = f'{node_target}[@{d.name}="{d.value}"]'
+                    # print(f'added {d.node} with value {xpaths[d.node]} ')
+        # we have found changes in the latest_config
+        if fx:
+            # convert the config string to an xml doc
+            latest_doc = ElementTree.fromstring(latest_config)
+
+            # now iterate only the top-level diffs (insertednodes only at this time)
+            for f in fx:
+                # target contains the full xpath, since we have the 'config' element already in 'latest_config'
+                # we need to adjust the xpath to be relative. Also attach the 'tag' to the end of the xpath
+                f_target_str = xpaths[f.target]
+                f_target_str_relative = f_target_str.replace('/config/', './')
+                changed_short_xpath = f'{f_target_str_relative}/{f.tag}'
+                # get this element from the latest config xml document
+                changed_element_dirty = latest_doc.find(changed_short_xpath)
+                changed_element = self.__clean_uuid(changed_element_dirty)
+                # keep a string of changes
+                xml_string = ''
+                # we can't just dump out the changed element because it'll contain the 'tag' as the outermost tag
+                # so, find all the children of this 'tag' and append them to the xml_string
+
+                xml_string = ElementTree.tostring(changed_element).decode(encoding='UTF-8')
+                xml_string_scrub_1 = re.sub(rf'<{f.tag}.*?>', '', xml_string)
+                xml_string_cleaned = re.sub(rf'</{f.tag}>', '', xml_string_scrub_1)
+                # now print out to the end user
+                print('---')
+                print(f'XPath: {f_target_str}/{f.tag}')
+                print(f'XML: {xml_string_cleaned.strip()}')
+        return fx
+
+    def __clean_uuid(self, changed_element: ElementTree.Element) -> ElementTree.Element:
+        """
+        Some rules and other elements contain the 'uuid' attribute. These should be removed before
+        they can be applied to another device / fw. This function descends to all child nodes and removes the uuid
+        attribute if found
+        :param changed_element: ElementTree.Element in which to search
+        :return: ElementTree.Element with all uuid attributes removed
+        """
+
+        child_nodes = changed_element.findall('.//*[@uuid]')
+        if child_nodes is None:
+            return changed_element
+
+        for child in child_nodes:
+            print('POPPING')
+            child.attrib.pop('uuid')
+
+        return changed_element
