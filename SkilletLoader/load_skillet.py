@@ -49,7 +49,7 @@ def cli(skillet_path, target_ip, target_port, target_username, target_password):
 
             for snippet in skillet.get_snippets():
                 metadata = snippet.render_metadata(context)
-                print(f'Performing cmd: {snippet.cmd}')
+                print(f'Loading Snippet: {snippet.name}')
                 if not device.execute_cmd(snippet.cmd, metadata):
                     print(f'Error executing snippet: {snippet.name}')
                     exit(1)
