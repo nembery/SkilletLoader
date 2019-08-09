@@ -31,10 +31,8 @@ from xmldiff import main as xmldiff_main
 
 from .exceptions import LoginException
 from .exceptions import SkilletLoaderException
-from .exceptions import PanoplyException
 from .skillet.base import Skillet
 
-import logging
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 handler = logging.StreamHandler(sys.stdout)
@@ -262,16 +260,30 @@ class Panoply:
 
         version = self.facts['sw-version']
         context = dict()
-        context['FW_NAME'] = self.facts['hostname']
         context['ADMINISTRATOR_USERNAME'] = self.user
         context['ADMINISTRATOR_PASSWORD'] = self.pw
-        if self.facts['is-dhcp'] == 'no':
-            context['MGMT_TYPE'] = 'static'
-            context['MGMT_IP'] = self.facts['ip-address']
-            context['MGMT_MASK'] = self.facts['netmask']
-            context['MGMT_DG'] = self.facts['default-gateway']
+
+        if self.facts['model'] == 'Panorama':
+            skillet_type_dir = 'panorama'
+            context['PANORAMA_NAME'] = self.facts['hostname']
+            # FIXME - is there a way to determine if dhcp is active via an op cmd?
+            context['PANORAMA_TYPE'] = 'static'
+            context['PANORAMA_IP'] = self.facts['ip-address']
+            context['PANORAMA_MASK'] = self.facts['netmask']
+            context['PANORAMA_DG'] = self.facts['default-gateway']
             context['DNS_1'] = self.facts['dns-primary']
             context['DNS_2'] = self.facts['dns-secondary']
+
+        else:
+            skillet_type_dir = 'panos'
+            context['FW_NAME'] = self.facts['hostname']
+            if self.facts['is-dhcp'] == 'no':
+                context['MGMT_TYPE'] = 'static'
+                context['MGMT_IP'] = self.facts['ip-address']
+                context['MGMT_MASK'] = self.facts['netmask']
+                context['MGMT_DG'] = self.facts['default-gateway']
+                context['DNS_1'] = self.facts['dns-primary']
+                context['DNS_2'] = self.facts['dns-secondary']
 
         if '8.0' in version:
             # load the 8.0 baseline with
@@ -285,7 +297,7 @@ class Panoply:
         else:
             raise SkilletLoaderException('Could not determine sw-version for baseline load')
 
-        template_path = Path(__file__).parent.joinpath('..', 'skillets', 'panos', skillet_dir)
+        template_path = Path(__file__).parent.joinpath('..', 'skillets', skillet_type_dir, skillet_dir)
         print(f'{template_path.resolve()}')
         baseline_skillet = Skillet(str(template_path.resolve()))
         snippets = baseline_skillet.get_snippets()
@@ -314,7 +326,7 @@ class Panoply:
         )
 
         r = requests.post(
-            'https://' + self.hostname + '/api/',
+            f'https://{self.hostname}:{self.port}/api/',
             verify=False,
             params=params,
             headers={'Content-Type': mef.content_type},

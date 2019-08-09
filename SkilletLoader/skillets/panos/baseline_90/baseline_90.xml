@@ -273,7 +273,6 @@
                     {% endif %}
                 </system>
             </deviceconfig>
-
             <vsys>
                 <entry name="vsys1">
                     <application/>
