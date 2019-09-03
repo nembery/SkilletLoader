@@ -64,7 +64,7 @@ class PanosSnippet(Snippet):
         meta['cmd'] = self.cmd
 
         for attr in self.metadata:
-            if attr != 'cmd' or attr != 'file':
+            if attr != 'cmd' or attr != 'file' or attr != 'when':
                 meta[attr] = self.render(self.metadata[attr], context)
 
         return meta

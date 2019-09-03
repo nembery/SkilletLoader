@@ -132,14 +132,23 @@ class Panoply:
         except PanXapiError as pxe:
             raise SkilletLoaderException(f'Could not push skillet {name} / snippet {xpath}! {pxe}')
 
-    def execute_cmd(self, cmd: str, params: dict) -> bool:
+    def execute_op(self, cmd_str: str) -> str:
+        try:
+            self.xapi.op(cmd=cmd_str)
+            return self.xapi.xml_result()
+        except PanXapiError as pxe:
+            print(pxe)
+            raise SkilletLoaderException(pxe)
+
+    def execute_cmd(self, cmd: str, params: dict) -> str:
         """
         Execute the given cmd using the xapi.
-        :param cmd: Valid options are 'set', 'edit', 'override', 'move', 'rename', 'clone'
+        :param cmd: Valid options are: 'op', 'show', 'get', 'delete', 'set', 'edit', 'override', 'move', 'rename',
+                                       'clone'
         :param params: valid parameters for the given cmd type
-        :return: bool True on success, raises SkilletLoaderException
+        :return: raw results from the cmd output, raises SkilletLoaderException
         """
-        if cmd not in ('set', 'edit', 'override', 'move', 'rename', 'clone'):
+        if cmd not in ('op', 'set', 'edit', 'override', 'move', 'rename', 'clone'):
             raise SkilletLoaderException('Invalid cmd type given to execute_cmd')
 
         # this code happily borrowed from ansible-pan module
@@ -147,6 +156,12 @@ class Panoply:
         cmd = params['cmd']
         func = getattr(self.xapi, cmd)
 
+        # shortcut for op cmd types
+        if cmd == 'op':
+            cmd_str = ''.join(params['cmd_str'].strip().split('\n'))
+            return self.execute_op(cmd_str)
+
+        # in all other cases, the xpath is a required attribute
         kwargs = {
             'xpath': ''.join(params['xpath'].strip().split('\n')),
             'extra_qs': params.get('extra_qs', dict())
@@ -171,18 +186,15 @@ class Panoply:
                 kwargs['xpath_from'] = params['xpath_from']
 
         except KeyError as ke:
-            print(f'Invalid parameters passed to execute_cmd')
-            print(ke)
-            return False
+            raise SkilletLoaderException(f'Invalid parameters passed to execute_cmd: {ke}')
 
         try:
             func(**kwargs)
+
         except PanXapiError as e:
-            print(e)
-            print(f'Could not execute {cmd}')
-            return False
-        else:
-            return True
+            raise SkilletLoaderException(f'Could not execute command: {cmd}: {e}')
+
+        return self.xapi.xml_result()
 
     @staticmethod
     def sanitize_element(element: str) -> str:
@@ -208,7 +220,6 @@ class Panoply:
         self.xapi.op(cmd='<show><system><info></info></system></show>')
 
         if self.xapi.status != 'success':
-            print('We have a problem!')
             raise SkilletLoaderException('Could not get facts from device!')
 
         results_xml_str = self.xapi.xml_result()
