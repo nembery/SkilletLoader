@@ -60,14 +60,17 @@ class Snippet:
 
     def capture_outputs(self, results: str) -> dict:
         outputs = dict()
-        if 'outputs' not in self.metadata or 'output_type' not in self.metadata:
+        if 'outputs' not in self.metadata:
             return outputs
 
-        if self.metadata['output_type'] == 'xml':
+        # default output type is 'xml' if not defined
+        output_type = self.metadata.get('output_type', 'xml')
+
+        if output_type == 'xml':
             outputs = self._handle_xml_outputs(results)
-        elif self.metadata['output_type'] == 'base64':
+        elif output_type == 'base64':
             outputs = self._handle_base64_outputs(results)
-        elif self.metadata['output_type'] == 'json':
+        elif output_type == 'json':
             outputs = self._handle_json_outputs(results)
 
         return outputs
@@ -155,7 +158,7 @@ class Snippet:
 
         return outputs
 
-    def __handle_base64_outputs(self, results: str) -> dict:
+    def _handle_base64_outputs(self, results: str) -> dict:
         """
          Parses results and returns a dict containing base64 encoded values
          :param snippet: snippet definition from the .meta-cnc snippets section
