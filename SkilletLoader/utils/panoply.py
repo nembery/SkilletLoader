@@ -32,6 +32,7 @@ from xmldiff import main as xmldiff_main
 from .exceptions import LoginException
 from .exceptions import SkilletLoaderException
 from .skillet.base import Skillet
+from .skillet.panos import PanosSkillet
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -628,7 +629,32 @@ class Panoply:
                 print(f'XML: {xml_string_cleaned.strip()}')
         return fx
 
-    def __clean_uuid(self, changed_element: ElementTree.Element) -> ElementTree.Element:
+    def execute_skillet(self, skillet: PanosSkillet, context: dict) -> dict:
+        """
+        Executes the given PanosSkillet
+        :param skillet: PanosSkillet
+        :param context: dict containing all required variables for the given skillet
+        :return: modified context containing any captured outputs
+        """
+        for snippet in skillet.get_snippets():
+            # render anything that looks like a jinja template in the snippet metadata
+            # mostly useful for xpaths in the panos case
+            metadata = snippet.render_metadata(context)
+            # check the 'when' conditional against variables currently held in the context
+            if snippet.should_execute(context):
+                print(f'Loading Snippet: {snippet.name}')
+                # execute the command from the snippet definition and return the raw output
+                output = self.execute_cmd(snippet.cmd, metadata)
+                # update the context with any captured outputs defined in the snippet metadata
+                context.update(snippet.capture_outputs(output))
+
+            else:
+                print(f'Skipping Snippet: {snippet.name}')
+
+        return context
+
+    @staticmethod
+    def __clean_uuid(changed_element: ElementTree.Element) -> ElementTree.Element:
         """
         Some rules and other elements contain the 'uuid' attribute. These should be removed before
         they can be applied to another device / fw. This function descends to all child nodes and removes the uuid

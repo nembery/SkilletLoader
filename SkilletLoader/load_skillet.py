@@ -47,21 +47,11 @@ def cli(skillet_path, target_ip, target_port, target_username, target_password):
                              api_port=target_port
                              )
 
-            for snippet in skillet.get_snippets():
-                # render anything that looks like a jinja template in the snippet metadata
-                # mostly useful for xpaths in the panos case
-                metadata = snippet.render_metadata(context)
-                # check the 'when' conditional against variables currently held in the context
-                if snippet.should_execute(context):
-                    print(f'Loading Snippet: {snippet.name}')
-                    # execute the command from the snippet definition and return the raw output
-                    output = device.execute_cmd(snippet.cmd, metadata)
-                    # update the context with any captured outputs defined in the snippet metadata
-                    context.update(snippet.capture_outputs(output))
-
-                else:
-                    print(f'Skipping Snippet: {snippet.name}')
-
+            context = device.execute_skillet(skillet, context)
+            # FIXME - context should always include a key indicating success / failure of the given skillet
+            # we may need situations where a failure doesn't necessarily raise an exception and we should handle
+            # this here. Possibly for things likes like - skillet already applied, no action taken, or some
+            # check failed...
             print('Performing Commit')
             device.commit()
             print(f'Successfully pushed Skillet {skillet.name} to host: {target_ip}')
