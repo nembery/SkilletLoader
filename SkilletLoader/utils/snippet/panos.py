@@ -20,18 +20,22 @@ from .base import Snippet
 
 
 class PanosSnippet(Snippet):
-    required_metadata = {'name', 'xpath'}
+    required_metadata = {'name'}
 
     def __init__(self, metadata: dict):
         if 'cmd' not in metadata:
             self.cmd = 'set'
-            self.element = metadata['element']
+            # ensure xpath is present when cmd == set
+            self.required_metadata = {'name', 'xpath'}
+        elif metadata['cmd'] == 'op':
+            self.cmd = metadata['cmd']
+            self.required_metadata = {'name', 'cmd_str'}
         else:
             self.cmd = metadata['cmd']
-            self.element = ''
 
+        # element should be the 'file' attribute read in as a str
+        self.element = metadata.get('element', '')
         super().__init__(self.element, metadata)
-        self.xpath = self.metadata['xpath']
 
     def sanitize_metadata(self, metadata: dict) -> dict:
         """
@@ -51,20 +55,24 @@ class PanosSnippet(Snippet):
         elif self.cmd == 'clone':
             if 'xpath_from' in metadata:
                 return metadata
+        elif self.cmd == 'op':
+            if 'cmd_str' in metadata:
+                return metadata
 
         raise SkilletLoaderException('Invalid metadata configuration')
 
     def render_metadata(self, context: dict) -> dict:
         """
         Renders each metadata value using the provided context
+        Currently only renders the xpath attribute - this may render others in the future
         :param context: dict containing key value pairs to
-        :return:
+        :return: dict containing the snippet definition metadata with the attribute values rendered accordingly
         """
-        meta = dict()
-        meta['cmd'] = self.cmd
-
-        for attr in self.metadata:
-            if attr != 'cmd' or attr != 'file' or attr != 'when':
-                meta[attr] = self.render(self.metadata[attr], context)
+        meta = self.metadata
+        if 'xpath' in self.metadata:
+            try:
+                meta['xpath'] = self.render(self.metadata['xpath'], context)
+            except TypeError as te:
+                print(f'Could not render xpath attribute')
 
         return meta

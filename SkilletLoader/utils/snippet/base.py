@@ -20,8 +20,8 @@ class Snippet:
     def __init__(self, template_str, metadata):
 
         self.metadata = self.sanitize_metadata(metadata)
-
         self.name = self.metadata['name']
+
         self.template_str = template_str
         self.rendered_template = ""
         self._env = self.__init_env()
@@ -81,8 +81,12 @@ class Snippet:
         :param metadata: dict
         :return: validated metadata dict
         """
+        name = metadata.get('name', '')
         if not self.required_metadata.issubset(metadata):
-            raise SkilletLoaderException('Invalid metadata configuration')
+            for attr_name in metadata:
+                if attr_name not in self.required_metadata:
+                    raise SkilletLoaderException(f'Invalid snippet metadata configuration: attribute: {attr_name} '
+                                                 f'is required for snippet: {name}')
 
         return metadata
 

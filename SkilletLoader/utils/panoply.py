@@ -97,14 +97,17 @@ class Panoply:
         else:
             self.connected = True
 
-    def commit(self) -> None:
+    def commit(self) -> str:
         """
         Perform a commit operation on this device instance
-        :return: None
+        :return: String from the API indicating success or failure
         """
         try:
             self.xapi.commit(cmd='<commit></commit>', sync=True, timeout=600)
             results = self.xapi.xml_result()
+            if results is None:
+                return self.xapi.status_detail
+
             doc = ElementTree.XML(results)
             embedded_result = doc.find('result')
             if embedded_result is not None:
@@ -112,6 +115,9 @@ class Panoply:
                 print(f'Commit result is {commit_result}')
                 if commit_result == 'FAIL':
                     raise SkilletLoaderException(self.xapi.status_detail)
+
+            return self.xapi.status_detail
+
         except PanXapiError as pxe:
             print(pxe)
             raise SkilletLoaderException('Could not commit configuration')
