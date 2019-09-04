@@ -636,6 +636,10 @@ class Panoply:
         :param context: dict containing all required variables for the given skillet
         :return: modified context containing any captured outputs
         """
+
+        # always update context with latest facts
+        context['facts'] = self.facts
+
         for snippet in skillet.get_snippets():
             # render anything that looks like a jinja template in the snippet metadata
             # mostly useful for xpaths in the panos case
