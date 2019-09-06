@@ -3,6 +3,7 @@ import xml.etree.ElementTree as elementTree
 from base64 import urlsafe_b64encode
 from xml.etree.ElementTree import ParseError
 
+import xmltodict
 from jinja2 import BaseLoader
 from jinja2 import Environment
 from jsonpath_ng import parse
@@ -46,14 +47,15 @@ class Snippet:
 
         if 'when' not in self.metadata:
             # always execute when no when conditional is present
+            print(f'No conditional present, proceeding with skillet: {self.name}')
             return True
 
         when = self.metadata['when']
-        when_str = f"{{% if {when} %}} True {{% else %}} False {{% endif %}}"
+        when_str = '{{%- if {0} -%}} True {{%- else -%}} False {{%- endif -%}}'.format(when)
         when_template = self._env.from_string(when_str)
         results = when_template.render(context)
-
-        if results == 'True':
+        print(f'Conditional Evaluation results: {results} ')
+        if str(results).strip() == 'True':
             return True
         else:
             return False
@@ -113,26 +115,41 @@ class Snippet:
         Example .meta-cnc snippets section:
         snippets:
 
-      - name: system_info
-        path: /api/?type=op&cmd=<show><system><info></info></system></show>&key={{ api_key }}
-        output_type: xml
-        outputs:
-          - name: hostname
-            capture_pattern: result/system/hostname
-          - name: uptime
-            capture_pattern: result/system/uptime
-          - name: sw_version
-            capture_pattern: result/system/sw-version
+          - name: system_info
+            path: /api/?type=op&cmd=<show><system><info></info></system></show>&key={{ api_key }}
+            output_type: xml
+            outputs:
+              - name: hostname
+                capture_pattern: result/system/hostname
+              - name: uptime
+                capture_pattern: result/system/uptime
+              - name: sw_version
+                capture_pattern: result/system/sw-version
 
         :param results: string as returned from some action, to be parsed as XML document
         :return: dict containing all outputs found from the capture pattern in each output
         """
+
+        def unique_tag_list(elements: list) -> bool:
+            tag_list = list()
+            for el in elements:
+                if el.tag not in tag_list:
+                    tag_list.append(el.tag)
+
+            if len(tag_list) == 1:
+                # all tags in this list are the same
+                return False
+            else:
+                # there are unique tags in this list
+                return True
+
         outputs = dict()
 
         snippet_name = 'unknown'
         if 'name' in self.metadata:
             snippet_name = self.metadata['name']
 
+        print(f'found results: {results}')
         try:
             xml_doc = elementTree.fromstring(results)
             if 'outputs' not in self.metadata:
@@ -140,20 +157,62 @@ class Snippet:
                 return outputs
 
             for output in self.metadata['outputs']:
-                if 'name' not in output or 'capture_pattern' not in output:
+
+                if 'name' not in output:
                     continue
 
                 var_name = output['name']
-                capture_pattern = output['capture_pattern']
-                entries = xml_doc.findall(capture_pattern)
-                if len(entries) == 1:
-                    outputs[var_name] = entries.pop().text
-                else:
-                    capture_list = list()
-                    for entry in entries:
-                        capture_list.append(entry.text)
+                if 'capture_pattern' in output or 'capture_value' in output:
+                    capture_pattern = output['capture_pattern']
 
-                    outputs[var_name] = capture_list
+                    # by default we will attempt to return the text of the found element
+                    return_type = 'text'
+                    entries = xml_doc.findall(capture_pattern)
+                    print(f'found entries: {entries}')
+                    if len(entries) == 0:
+                        outputs[var_name] = ''
+                    elif len(entries) == 1:
+                        entry = entries.pop()
+                        if len(entry) == 0:
+                            # this tag has no children, so try to grab the text
+                            if return_type == 'text':
+                                outputs[var_name] = str(entry.text).strip()
+                            else:
+                                outputs[var_name] = entry.tag
+                        else:
+                            # we have 1 Element returned, so the user has a fairly specific xpath
+                            # however, this element has children itself, so we can't return a text value
+                            # just return the tag name of this element only
+                            outputs[var_name] = entry.tag
+                    else:
+                        # we have a list of elements returned from the users xpath query
+                        capture_list = list()
+                        # are there unique tags in this list? or is this a list of the same tag names?
+                        if unique_tag_list(entries):
+                            return_type = 'tag'
+                        for entry in entries:
+                            if len(entry) == 0:
+                                if return_type == 'text':
+                                    capture_list.append(str(entry.text).strip())
+                                else:
+                                    capture_list.append(entry.tag)
+                            else:
+                                capture_list.append(entry.tag)
+
+                        outputs[var_name] = capture_list
+
+                elif 'capture_object' in output:
+                    capture_pattern = output['capture_object']
+                    entries = xml_doc.findall(capture_pattern)
+                    if len(entries) == 0:
+                        outputs[var_name] = dict()
+                    elif len(entries) == 1:
+                        outputs[var_name] = xmltodict.parse(elementTree.tostring(entries.pop()))
+                    else:
+                        capture_list = list()
+                        for entry in entries:
+                            capture_list.append(xmltodict.parse(elementTree.tostring(entry)))
+                        outputs[var_name] = capture_list
 
         except ParseError:
             print('Could not parse XML document in output_utils')
@@ -165,7 +224,6 @@ class Snippet:
     def _handle_base64_outputs(self, results: str) -> dict:
         """
          Parses results and returns a dict containing base64 encoded values
-         :param snippet: snippet definition from the .meta-cnc snippets section
          :param results: string as returned from some action, to be encoded as base64
          :return: dict containing all outputs found from the capture pattern in each output
          """

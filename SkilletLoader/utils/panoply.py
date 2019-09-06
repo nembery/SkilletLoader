@@ -155,7 +155,7 @@ class Panoply:
         :param params: valid parameters for the given cmd type
         :return: raw results from the cmd output, raises SkilletLoaderException
         """
-        if cmd not in ('op', 'set', 'edit', 'override', 'move', 'rename', 'clone'):
+        if cmd not in ('op', 'set', 'edit', 'override', 'move', 'rename', 'clone', 'show', 'get', 'delete'):
             raise SkilletLoaderException('Invalid cmd type given to execute_cmd')
 
         # this code happily borrowed from ansible-pan module
@@ -652,13 +652,14 @@ class Panoply:
             metadata = snippet.render_metadata(context)
             # check the 'when' conditional against variables currently held in the context
             if snippet.should_execute(context):
-                print(f'Loading Snippet: {snippet.name}')
+                print(f'Executing Snippet: {snippet.name}')
                 # execute the command from the snippet definition and return the raw output
                 output = self.execute_cmd(snippet.cmd, metadata)
                 # update the context with any captured outputs defined in the snippet metadata
                 context.update(snippet.capture_outputs(output))
 
             else:
+                # FIXME - we should possibly be able to bail out when a conditional fails
                 print(f'Skipping Snippet: {snippet.name}')
 
         return context

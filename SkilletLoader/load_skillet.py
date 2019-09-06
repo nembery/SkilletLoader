@@ -52,9 +52,11 @@ def cli(skillet_path, target_ip, target_port, target_username, target_password):
             # we may need situations where a failure doesn't necessarily raise an exception and we should handle
             # this here. Possibly for things likes like - skillet already applied, no action taken, or some
             # check failed...
-            msg = device.commit()
+            # msg = device.commit()
+            msg = 'no commit for testing, commit commented out for now'
             print(f'Successfully executed Skillet {skillet.name} for host: {target_ip}')
             print(f'commit message was: {msg}')
+            print(f'context is now {context}')
             exit(0)
 
     except LoginException as lxe:
