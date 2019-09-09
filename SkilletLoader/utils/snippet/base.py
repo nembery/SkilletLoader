@@ -45,6 +45,8 @@ class Snippet:
         :return: boolean
         """
 
+        print(f'Checking snippet: {self.name}')
+
         if 'when' not in self.metadata:
             # always execute when no when conditional is present
             print(f'No conditional present, proceeding with skillet: {self.name}')
@@ -54,7 +56,7 @@ class Snippet:
         when_str = '{{%- if {0} -%}} True {{%- else -%}} False {{%- endif -%}}'.format(when)
         when_template = self._env.from_string(when_str)
         results = when_template.render(context)
-        print(f'Conditional Evaluation results: {results} ')
+        print(f'  Conditional Evaluation results: {results} ')
         if str(results).strip() == 'True':
             return True
         else:
@@ -74,6 +76,8 @@ class Snippet:
             outputs = self._handle_base64_outputs(results)
         elif output_type == 'json':
             outputs = self._handle_json_outputs(results)
+        elif output_type == 'manual':
+            outputs = self._handle_manual_outputs(results)
 
         return outputs
 
@@ -205,7 +209,7 @@ class Snippet:
                     capture_pattern = output['capture_object']
                     entries = xml_doc.findall(capture_pattern)
                     if len(entries) == 0:
-                        outputs[var_name] = dict()
+                        outputs[var_name] = None
                     elif len(entries) == 1:
                         outputs[var_name] = xmltodict.parse(elementTree.tostring(entries.pop()))
                     else:
@@ -253,22 +257,21 @@ class Snippet:
 
         return outputs
 
-    def _handle_json_outputs(self, snippet: dict, results: str) -> dict:
+    def _handle_json_outputs(self, results: str) -> dict:
         outputs = dict()
 
         snippet_name = 'unknown'
-
-        if 'name' in snippet:
-            snippet_name = snippet['name']
+        if 'name' in self.metadata:
+            snippet_name = self.metadata['name']
 
         try:
-            if 'outputs' not in snippet:
-                print(f'No output defined in this snippet {snippet_name}')
+            if 'outputs' not in self.metadata:
+                print('No outputs defined in this snippet')
                 return outputs
 
-            for output in snippet['outputs']:
+            for output in self.metadata['outputs']:
+
                 if 'name' not in output:
-                    print('malformed outputs in skillet definition')
                     continue
 
                 json_object = json.loads(results)
@@ -293,5 +296,32 @@ class Snippet:
             print('Unknown exception here!')
             print(e)
             outputs['system'] = str(e)
+
+        return outputs
+
+    def _handle_manual_outputs(self, results: str) -> dict:
+        outputs = dict()
+
+        snippet_name = 'unknown'
+        if 'name' in self.metadata:
+            snippet_name = self.metadata['name']
+
+        try:
+            if 'outputs' not in self.metadata:
+                print('No outputs defined in this snippet')
+                return outputs
+
+            for output in self.metadata['outputs']:
+
+                if 'name' not in output:
+                    continue
+
+                var_name = output['name']
+                value = output['value']
+
+                outputs[var_name] = value
+
+        except KeyError as ke:
+            print(f'Could not locate required attributes for manual output: {ke} in snippet: {snippet_name}')
 
         return outputs
