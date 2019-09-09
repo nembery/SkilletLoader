@@ -37,6 +37,14 @@ class PanosSnippet(Snippet):
         # element should be the 'file' attribute read in as a str
         self.element = metadata.get('element', '')
         super().__init__(self.element, metadata)
+        self.add_filters()
+
+    def add_filters(self):
+        if hasattr(self._env, 'filters'):
+            self._env.filters['has_config'] = self.__has_configuration
+            self._env.filters['missing_config'] = self.__missing_configuration
+        else:
+            print('NO FILTERS TO APPEND TO')
 
     def sanitize_metadata(self, metadata: dict) -> dict:
         """
@@ -115,8 +123,6 @@ class PanosSnippet(Snippet):
                 raise SkilletLoaderException('Could not locate cherry_pick path in source xml! '
                                              'Check the cherry_pick xpath!')
             new_element = elementTree.tostring(cherry_picked_element).strip()
-            print('Cherry Picked Element to be pushed is:')
-            print(new_element)
             return new_element
 
         except ParseError as pe:
@@ -157,3 +163,45 @@ class PanosSnippet(Snippet):
         # remove the last node from the resulting xpath
         xpath_parts = rendered_xpath.split('/')
         return '/'.join(xpath_parts[:-1])
+
+    @staticmethod
+    def __has_configuration(obj, child_key) -> (str, None):
+
+        print(obj)
+        print(child_key)
+        if obj is None:
+            print('Object was None')
+            return None
+
+        if child_key in obj:
+            print('key was found on object')
+            return 'True'
+
+        for child in obj:
+            print(f'checkkng {child}')
+            if child_key in obj[child]:
+                print('key was found on child object')
+                return 'True'
+
+        print('No key was found here')
+        return None
+
+    @staticmethod
+    def __missing_configuration(obj, child_key) -> (str, None):
+
+        if obj is None:
+            print('Object was None, missing config')
+            return 'True'
+
+        if child_key in obj:
+            print('key was found on object')
+            return None
+
+        for child in obj:
+            print(f'checkng {child}')
+            if child_key in obj[child]:
+                print('key was found on child object')
+                return None
+
+        print('No key was found here')
+        return 'True'
