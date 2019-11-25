@@ -18,11 +18,10 @@
 import os
 
 import click
-
-from utils.exceptions import LoginException
-from utils.exceptions import SkilletLoaderException
-from utils.panoply import Panoply
-from utils.skillet.panos import PanosSkillet
+from skilletlib import Panoply
+from skilletlib import SkilletLoader
+from skilletlib.exceptions import LoginException
+from skilletlib.exceptions import SkilletLoaderException
 
 
 @click.command()
@@ -37,7 +36,8 @@ def cli(skillet_path, target_ip, target_port, target_username, target_password):
     """
 
     try:
-        skillet = PanosSkillet(skillet_path)
+        sl = SkilletLoader()
+        skillet = sl.load_skillet_from_path(skillet_path)
         context = skillet.update_context(os.environ.copy())
 
         if skillet.type == 'panos':
@@ -47,13 +47,9 @@ def cli(skillet_path, target_ip, target_port, target_username, target_password):
                              api_port=target_port
                              )
 
-            for snippet in skillet.get_snippets():
-                metadata = snippet.render_metadata(context)
-                print(f'Performing cmd: {snippet.cmd}')
-                if not device.execute_cmd(snippet.cmd, metadata):
-                    print(f'Error executing snippet: {snippet.name}')
-                    exit(1)
-
+            # set the device object on the skillet object
+            skillet.panoply = device
+            skillet.execute(context)
             print('Performing Commit')
             device.commit()
             print(f'Successfully pushed Skillet {skillet.name} to host: {target_ip}')

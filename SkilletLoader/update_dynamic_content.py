@@ -16,10 +16,9 @@
 # Authors: Edward Arcuri, Nathan Embery
 
 import click
-
-from utils.exceptions import LoginException
-from utils.exceptions import SkilletLoaderException
-from utils.panoply import Panoply
+from skilletlib import Panoply
+from skilletlib.exceptions import LoginException
+from skilletlib.exceptions import SkilletLoaderException
 
 
 @click.command()

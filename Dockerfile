@@ -1,6 +1,6 @@
 FROM python:3.7-alpine
 
-LABEL description="Skillet Loader Tool"
+LABEL description="Skillet Loader Tools"
 LABEL version="0.1"
 LABEL maintainer="sp-solutions@paloaltonetworks.com"
 

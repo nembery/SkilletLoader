@@ -18,11 +18,10 @@
 import os
 
 import click
-
-from utils.exceptions import LoginException
-from utils.exceptions import SkilletLoaderException
-from utils.panoply import Panoply
-from utils.skillet.panos import PanosSkillet
+from skilletlib import Panoply
+from skilletlib import SkilletLoader
+from skilletlib.exceptions import LoginException
+from skilletlib.exceptions import SkilletLoaderException
 
 
 @click.command()
@@ -37,7 +36,8 @@ def cli(skillet_path, target_ip, target_port, target_username, target_password):
     """
 
     try:
-        skillet = PanosSkillet(skillet_path)
+        sl = SkilletLoader()
+        skillet = sl.load_skillet_from_path(skillet_path)
         context = skillet.update_context(os.environ.copy())
 
         if skillet.type == 'panos':
@@ -47,7 +47,8 @@ def cli(skillet_path, target_ip, target_port, target_username, target_password):
                              api_port=target_port
                              )
 
-            context = device.execute_skillet(skillet, context)
+            skillet.panoply = device
+            context = skillet.execute(context)
             # FIXME - context should always include a key indicating success / failure of the given skillet
             # we may need situations where a failure doesn't necessarily raise an exception and we should handle
             # this here. Possibly for things likes like - skillet already applied, no action taken, or some

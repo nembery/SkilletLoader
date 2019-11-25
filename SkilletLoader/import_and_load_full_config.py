@@ -18,11 +18,10 @@
 import os
 
 import click
-
-from utils.exceptions import LoginException
-from utils.exceptions import SkilletLoaderException
-from utils.panoply import Panoply
-from utils.skillet.base import Skillet
+from skilletlib import Panoply
+from skilletlib import SkilletLoader
+from skilletlib.exceptions import LoginException
+from skilletlib.exceptions import SkilletLoaderException
 
 
 @click.command()
@@ -37,7 +36,11 @@ def cli(skillet_path, target_ip, target_port, target_username, target_password):
     """
 
     try:
-        skillet = Skillet(skillet_path)
+        # ensure skillet_path contains the skillet you want as this will just load them all
+        sl = SkilletLoader(skillet_path)
+        # grab first skillet from list
+        skillet = sl.skillets[0]
+
         context = skillet.update_context(os.environ.copy())
 
         if skillet.type == 'template':
