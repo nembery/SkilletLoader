@@ -1,7 +1,7 @@
 FROM python:3.7-alpine
 
 LABEL description="Skillet Loader Tools"
-LABEL version="0.1"
+LABEL version="0.2"
 LABEL maintainer="sp-solutions@paloaltonetworks.com"
 
 WORKDIR /app
@@ -20,9 +20,9 @@ RUN apk add --update --no-cache curl libxml2 libxml2-dev libxslt-dev git && \
 
 COPY SkilletLoader/ /app
 
-RUN curl -i -s -k -X POST https://scanapi.redlock.io/v1/vuln/os \
- -F "fileName=/etc/alpine-release" -F "file=@/etc/alpine-release" \
- -F "fileName=/lib/apk/db/installed" -F "file=@/lib/apk/db/installed" \
- -F "rl_args=report=detail" | grep -i "x-redlock-scancode: pass"
+#RUN curl -i -s -k -X POST https://scanapi.redlock.io/v1/vuln/os \
+# -F "fileName=/etc/alpine-release" -F "file=@/etc/alpine-release" \
+# -F "fileName=/lib/apk/db/installed" -F "file=@/lib/apk/db/installed" \
+# -F "rl_args=report=detail" | grep -i "x-redlock-scancode: pass"
 
 RUN chmod +x /app/*.py

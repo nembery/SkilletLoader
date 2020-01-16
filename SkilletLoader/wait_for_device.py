@@ -16,7 +16,7 @@
 # Authors: Edward Arcuri, Nathan Embery
 
 import click
-from skilletlib import Panoply
+from skilletlib import EphemeralPanos
 from skilletlib.exceptions import LoginException
 from skilletlib.exceptions import SkilletLoaderException
 
@@ -26,20 +26,21 @@ from skilletlib.exceptions import SkilletLoaderException
 @click.option("-r", "--target_port", help="Port to communicate to NGFW (443)", type=int, default=443)
 @click.option("-u", "--target_username", help="Firewall Username (admin)", type=str, default="admin")
 @click.option("-p", "--target_password", help="Firewall Password (admin)", type=str, default="admin")
-def cli(target_ip, target_port, target_username, target_password):
+@click.option("-t", "--timeout", help="Timeout (how long to wait)", type=int, default=600)
+def cli(target_ip, target_port, target_username, target_password, timeout):
     """
     Wait for the specified device to come online
     """
 
     try:
 
-        device = Panoply(api_username=target_username,
-                         api_password=target_password,
-                         hostname=target_ip,
-                         api_port=target_port
-                         )
+        device = EphemeralPanos(api_username=target_username,
+                                api_password=target_password,
+                                hostname=target_ip,
+                                api_port=target_port
+                                )
 
-        if not device.wait_for_device_ready(interval=30, timeout=600):
+        if not device.wait_for_device_ready(interval=30, timeout=timeout):
             exit(1)
 
         exit(0)

@@ -18,8 +18,8 @@
 import os
 
 import click
-from skilletlib import Panoply
 from skilletlib import SkilletLoader
+from skilletlib import Panos
 from skilletlib.exceptions import LoginException
 from skilletlib.exceptions import SkilletLoaderException
 
@@ -41,11 +41,11 @@ def cli(skillet_path, target_ip, target_port, target_username, target_password):
         context = skillet.update_context(os.environ.copy())
 
         if skillet.type == 'panos':
-            device = Panoply(api_username=target_username,
-                             api_password=target_password,
-                             hostname=target_ip,
-                             api_port=target_port
-                             )
+            device = Panos(api_username=target_username,
+                           api_password=target_password,
+                           hostname=target_ip,
+                           api_port=target_port
+                           )
 
             skillet.panoply = device
             context = skillet.execute(context)

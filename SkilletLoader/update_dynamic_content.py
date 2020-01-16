@@ -16,7 +16,7 @@
 # Authors: Edward Arcuri, Nathan Embery
 
 import click
-from skilletlib import Panoply
+from skilletlib import Panos
 from skilletlib.exceptions import LoginException
 from skilletlib.exceptions import SkilletLoaderException
 
@@ -36,11 +36,11 @@ def cli(target_ip, target_port, target_username, target_password, content_type):
 
     try:
 
-        device = Panoply(api_username=target_username,
-                         api_password=target_password,
-                         hostname=target_ip,
-                         api_port=target_port
-                         )
+        device = Panos(api_username=target_username,
+                       api_password=target_password,
+                       hostname=target_ip,
+                       api_port=target_port
+                       )
 
         if not device.update_dynamic_content(content_type):
             exit(1)

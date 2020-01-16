@@ -41,6 +41,8 @@ def cli(skillet_path, target_ip, target_port, target_username, target_password):
         # grab first skillet from list
         skillet = sl.skillets[0]
 
+        # this allows any variables needed for the template skillet too be passed in
+        # via env vars. Especially useful for Jenkins and docker type deployments
         context = skillet.update_context(os.environ.copy())
 
         if skillet.type == 'template':
@@ -49,9 +51,14 @@ def cli(skillet_path, target_ip, target_port, target_username, target_password):
                              hostname=target_ip,
                              api_port=target_port
                              )
-            snippets = skillet.get_snippets()
-            snippet = snippets[0]
-            device.import_file(snippet.name, snippet.template(context), 'configuration')
+            output = skillet.execute(context)
+            template = output.get('template', None)
+            if template is None:
+                print('Could not render template')
+                exit(1)
+
+            snippet = output.get('snippets')[0]
+            device.import_file(snippet.get('name', 'loaded_config'), template, 'configuration')
             device.load_config(snippet.name)
             device.commit()
             print(f'Successfully imported and loaded Skillet {skillet.name} to host: {target_ip}')
