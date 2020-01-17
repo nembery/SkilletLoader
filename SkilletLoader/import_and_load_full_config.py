@@ -57,9 +57,9 @@ def cli(skillet_path, target_ip, target_port, target_username, target_password):
                 print('Could not render template')
                 exit(1)
 
-            snippet = output.get('snippets')[0]
+            snippet = skillet.snippet_stack[0]
             device.import_file(snippet.get('name', 'loaded_config'), template, 'configuration')
-            device.load_config(snippet.name)
+            device.load_config(snippet.get('name', 'loaded_config'))
             device.commit()
             print(f'Successfully imported and loaded Skillet {skillet.name} to host: {target_ip}')
             exit(0)
