@@ -48,17 +48,20 @@ def cli(skillet_path, target_ip, target_port, target_username, target_password):
                            )
 
             skillet.panoply = device
-            context = skillet.execute(context)
+            output = skillet.execute(context)
             # FIXME - context should always include a key indicating success / failure of the given skillet
             # we may need situations where a failure doesn't necessarily raise an exception and we should handle
             # this here. Possibly for things likes like - skillet already applied, no action taken, or some
             # check failed...
-            # msg = device.commit()
-            msg = 'no commit for testing, commit commented out for now'
-            print(f'Successfully executed Skillet {skillet.name} for host: {target_ip}')
-            print(f'commit message was: {msg}')
-            print(f'context is now {context}')
-            exit(0)
+            if output.get('result', 'failure') == 'success':
+                msg = device.commit()
+                # msg = 'no commit for testing, commit commented out for now'
+                print(f'Successfully executed Skillet {skillet.name} for host: {target_ip}')
+                print(f'commit message was: {msg}')
+                print(f'output was: {context}')
+                exit(0)
+            else:
+                exit(1)
 
     except LoginException as lxe:
         print(lxe)
