@@ -1,7 +1,7 @@
 FROM python:3.7-alpine
 
 LABEL description="Skillet Loader Tools"
-LABEL version="0.2"
+LABEL version="0.3"
 LABEL maintainer="sp-solutions@paloaltonetworks.com"
 
 WORKDIR /app

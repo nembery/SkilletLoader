@@ -21,6 +21,7 @@ from skilletlib.exceptions import LoginException
 from skilletlib.exceptions import SkilletLoaderException
 import os
 
+
 @click.command()
 @click.option("-i", "--target_ip", help="IP address of the device (localhost)", type=str, default="localhost")
 @click.option("-r", "--target_port", help="Port to communicate to NGFW (443)", type=int, default=443)
