@@ -1,0 +1,18 @@
+docker-build:
+  image: docker:latest
+  stage: build
+  services:
+    - docker:dind
+
+  variables:
+    IMAGE: $CI_REGISTRY_IMAGE/$CI_COMMIT_REF_SLUG:$CI_COMMIT_SHA
+
+  before_script:
+    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" $CI_REGISTRY
+
+  script:
+    - docker info
+    - docker build --pull -t $IMAGE .
+    - docker push $IMAGE
+    - docker tag $IMAGE "$CI_REGISTRY_IMAGE:$CI_COMMIT_REF_NAME"
+    - docker push "$CI_REGISTRY_IMAGE:$CI_COMMIT_REF_NAME"
