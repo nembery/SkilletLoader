@@ -1,22 +1,9 @@
-FROM python:3.7-alpine
-
-LABEL description="Skillet Loader Tools"
-LABEL version="0.3"
-LABEL maintainer="sp-solutions@paloaltonetworks.com"
-
-WORKDIR /app
-
-ENV PATH="/app:${PATH}"
-ENV PYTHONUNBUFFERED=1
-
+FROM nbalasabas/skillet_tools:latest
+  
 COPY requirements.txt /app/requirements.txt
 
-RUN apk add --update --no-cache curl libxml2 libxml2-dev libxslt-dev git && \
-    apk add --virtual build-dependencies build-base && \
-	pip install --upgrade pip && \
-	pip install --no-cache-dir --no-use-pep517 -r requirements.txt && \
-    apk del build-dependencies && \
-	mkdir /skillets
+RUN pip install --no-cache-dir --no-use-pep517 -r requirements.txt && \
+    mkdir /skillets
 
 COPY SkilletLoader/ /app
 
