@@ -18,6 +18,7 @@
 import os
 
 import click
+import yaml
 from skilletlib import SkilletLoader
 from skilletlib import Panos
 from skilletlib.exceptions import LoginException
@@ -29,8 +30,9 @@ from skilletlib.exceptions import SkilletLoaderException
 @click.option("-r", "--target_port", help="Port to communicate to NGFW (443)", type=int, default=443)
 @click.option("-u", "--target_username", help="Firewall Username (admin)", type=str, default="admin")
 @click.option("-p", "--target_password", help="Firewall Password (admin)", type=str, default="admin")
+@click.option("-e", "--env_file", help="Environment File", type=str, default=None)
 @click.argument("skillet_path", type=click.Path(exists=True))
-def cli(skillet_path, target_ip, target_port, target_username, target_password):
+def cli(skillet_path, target_ip, target_port, target_username, target_password, env_file):
     """
     Load the Skillet from the command line.  Defaults values in parenthesis.
     """
@@ -38,7 +40,15 @@ def cli(skillet_path, target_ip, target_port, target_username, target_password):
     try:
         sl = SkilletLoader()
         skillet = sl.load_skillet_from_path(skillet_path)
-        context = skillet.update_context(os.environ.copy())
+
+        if env_file is not None:
+            try:
+                with open(env_file, 'r') as ef:
+                    context = yaml.safe_load(ef.read())
+            except yaml.YAMLError:
+                context = os.environ.copy()
+        else:
+            context = skillet.update_context(os.environ.copy())
 
         if skillet.type == 'panos':
             device = Panos(api_username=target_username,

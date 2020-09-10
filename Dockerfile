@@ -1,5 +1,14 @@
-FROM nbalasabas/skillet_tools:latest
-  
+FROM registry.gitlab.com/panw-gse/as/as-py-base-image:latest
+
+LABEL description="Skillet Loader Tools"
+LABEL version="0.3"
+LABEL maintainer="tsautomatedsolutions@paloaltonetworks.com"
+
+WORKDIR /app
+
+ENV PATH="/app:${PATH}"
+ENV PYTHONUNBUFFERED=1
+
 COPY requirements.txt /app/requirements.txt
 
 RUN pip install --no-cache-dir --no-use-pep517 -r requirements.txt && \
